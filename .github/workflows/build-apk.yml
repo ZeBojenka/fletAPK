@@ -6,55 +6,47 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v3
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
           java-version: '17'
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+          
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Install Python dependencies
+          
+      - name: Install Flet
         run: pip install flet
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: '3.22.0'
-
-      - name: Install Android SDK
+          
+      - name: Setup Android SDK (safe method)
         run: |
-          sudo apt-get -y update
-          sudo apt-get -y install unzip
-          wget https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
-          unzip commandlinetools-linux-10406996_latest.zip -d cmdline-tools
-          mkdir -p $ANDROID_HOME/cmdline-tools/latest
-          mv cmdline-tools/cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest
-          rm commandlinetools-linux-10406996_latest.zip
-          echo "$ANDROID_HOME/cmdline-tools/latest" >> $GITHUB_PATH
-
-      - name: Configure Android SDK
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+          unzip -q commandlinetools-linux-10406996_latest.zip -d $HOME/android-sdk/cmdline-tools
+          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest:$HOME/android-sdk/platform-tools" >> $GITHUB_ENV
+        if: ${{ !env.ANDROID_HOME }}
+        
+      - name: Install Android components
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;25.2.9519653"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-
-      - name: Set Android environment variables
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "PATH=$PATH:$ANDROID_HOME/platform-tools" >> $GITHUB_ENV
-
+          
+      - name: Accept Flutter licenses
+        run: flutter doctor --android-licenses -y
+        
       - name: Build APK
         run: flet build apk --python main.py
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        
+      - uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/apk/release/app-release.apk
