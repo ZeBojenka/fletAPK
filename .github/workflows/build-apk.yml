@@ -29,32 +29,8 @@ jobs:
           channel: stable
           flutter-version: '3.29.2'
 
-      - name: Setup Android SDK
-        run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
-          unzip -q commandlinetools-linux-10406996_latest.zip -d $HOME/android-sdk/cmdline-tools
-          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
-          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest:$HOME/android-sdk/platform-tools" >> $GITHUB_ENV
-
-      - name: Install Android components
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;25.2.9519653"
-
-      - name: Accept Android licenses
-        run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          
-          # Принимаем лицензии через sdkmanager
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-          
-          # Принимаем лицензии через Flutter
-          (while :; do echo "y"; done) | flutter doctor --android-licenses
-
-      - name: Install build dependencies
-        run: sudo apt-get install -y libgtk-3-dev
+      - name: Install Android dependencies
+        run: sudo apt-get install -y libgtk-3-dev unzip
 
       - name: Verify project structure
         run: |
@@ -64,24 +40,20 @@ jobs:
           echo "Looking for Python files:"
           find . -name "*.py"
 
-      - name: Build APK
+      - name: Build APK with explicit module name
         run: |
-          # Определяем точку входа
-          if [ -f "src/main.py" ]; then
-            ENTRY_POINT="src/main.py"
-          elif [ -f "src/app.py" ]; then
-            ENTRY_POINT="src/app.py"
-          else
-            PY_FILE=$(find src -name "*.py" | head -1)
-            if [ -z "$PY_FILE" ]; then
-              echo "Error: No Python files found in src directory!"
-              exit 1
-            fi
-            ENTRY_POINT="$PY_FILE"
-          fi
+          # Создаем временный entrypoint.py в корне
+          cat > entrypoint.py <<EOF
+          import sys
+          sys.path.insert(0, 'src')
+          from main import main
           
-          echo "Building APK for: $ENTRY_POINT"
-          flet build apk "$ENTRY_POINT"
+          if __name__ == '__main__':
+              main()
+          EOF
+          
+          # Собираем APK
+          flet build apk entrypoint.py
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
