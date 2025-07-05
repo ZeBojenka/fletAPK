@@ -27,33 +27,28 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: '3.29.2'
+          flutter-version: '3.22.0'
 
-      - name: Install Android dependencies
-        run: sudo apt-get install -y libgtk-3-dev unzip
-
-      - name: Verify project structure
+      - name: Setup Android SDK
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Files in repository:"
-          ls -la
-          echo "Looking for Python files:"
-          find . -name "*.py"
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+          unzip -q commandlinetools-linux-10406996_latest.zip -d $HOME/android-sdk/cmdline-tools
+          mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest:$HOME/android-sdk/platform-tools" >> $GITHUB_ENV
 
-      - name: Build APK with explicit module name
+      - name: Install Android components
         run: |
-          # Создаем временный entrypoint.py в корне
-          cat > entrypoint.py <<EOF
-          import sys
-          sys.path.insert(0, 'src')
-          from main import main
-          
-          if __name__ == '__main__':
-              main()
-          EOF
-          
-          # Собираем APK
-          flet build apk entrypoint.py
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;25.2.9519653"
+
+      - name: Accept Android licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          flutter doctor --android-licenses
+
+      - name: Build APK
+        run: flet build apk  # Исправлено здесь!
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
