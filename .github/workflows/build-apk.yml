@@ -6,31 +6,55 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
       - name: Install Python dependencies
         run: pip install flet
-          
-      - uses: subosito/flutter-action@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
-          
-      - name: Accept Android licenses
+          flutter-version: '3.22.0'
+
+      - name: Install Android SDK
         run: |
-          yes | sdkmanager --licenses || true
-          flutter doctor --android-licenses -y
-          
-      - name: Install system dependencies
-        run: sudo apt-get install -y clang cmake ninja-build libgtk-3-dev
-          
+          sudo apt-get -y update
+          sudo apt-get -y install unzip
+          wget https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip
+          unzip commandlinetools-linux-10406996_latest.zip -d cmdline-tools
+          mkdir -p $ANDROID_HOME/cmdline-tools/latest
+          mv cmdline-tools/cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest
+          rm commandlinetools-linux-10406996_latest.zip
+          echo "$ANDROID_HOME/cmdline-tools/latest" >> $GITHUB_PATH
+
+      - name: Configure Android SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+
+      - name: Set Android environment variables
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "PATH=$PATH:$ANDROID_HOME/platform-tools" >> $GITHUB_ENV
+
       - name: Build APK
         run: flet build apk --python main.py
-        
-      - uses: actions/upload-artifact@v4
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/apk/release/app-release.apk
