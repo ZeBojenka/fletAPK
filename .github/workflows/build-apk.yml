@@ -47,13 +47,8 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
           flutter doctor --android-licenses
 
-      - name: Verify environment
-        run: |
-          flutter --version
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed
-
       - name: Build APK
-        run: flet build apk --python main.py
+        run: flet build apk main.py  # Исправлено здесь!
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
