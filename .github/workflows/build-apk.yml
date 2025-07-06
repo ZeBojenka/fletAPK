@@ -50,8 +50,17 @@ jobs:
       - name: Build APK
         run: flet build apk  # Исправлено здесь!
 
+      - name: Prepare artifacts
+        run: |
+          # Создаем папку для артефактов
+          mkdir -p artifacts
+          # Копируем APK в фиксированное место
+          find . -name '*.apk' -exec cp -v {} artifacts/app-release.apk \;
+          # Проверяем размер файла
+          ls -lh artifacts
+          
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: build/app/outputs/apk/release/app-release.apk
+          path: artifacts/app-release.apk
